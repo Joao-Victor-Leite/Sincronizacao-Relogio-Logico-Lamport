@@ -36,7 +36,7 @@ class Process:
         if condition_1 and condition_2:
             # Atualiza o vetor de causalidade do receptor
             for processo in range(self.num_processes):
-                self.clock[k] = max(self.clock[processo], m[processo])
+                self.clock[processo] = max(self.clock[processo], m[processo])
 
             # Processa a mensagem
             print(f"Process {id_receiver} received message: {message} from Process {id_sender}")
