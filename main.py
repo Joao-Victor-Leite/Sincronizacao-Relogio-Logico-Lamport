@@ -40,7 +40,7 @@ class Process:
             """
             receive_time = send_time + delay
             packed_message = (id_sender, id_receiver, message.copy(), send_time, receive_time)
-            print(f"[SEND] Time: {send_time:.2f} - Process {id_sender} sending message to Process {id_receiver} with delay {delay}s. Message: {message}\n")
+            print(f"[SEND] Process {id_sender} sending message to Process {id_receiver} with delay {delay}s. Message: {message}")
 
             receiver = self.find_process(id_receiver)
             if receiver:
@@ -86,7 +86,8 @@ class Process:
         condition_2 = all(m[k] <= self.clock[k] for k in range(self.num_processes) if k != id_sender)
 
         if not condition_1 or not condition_2:
-            print(f"[DELAY] Time: {receive_time:.2f} - Message from Process {id_sender} to Process {id_receiver} delayed\n")
+            print(f"[DELAY] Message from Process {id_sender} to Process {id_receiver} delayed")
+            self.message_queue.append(packed_message)
             return False
         
         return True
@@ -113,12 +114,12 @@ class Process:
                      # Atualiza o vetor de causalidade do receptor
                     for processo in range(self.num_processes):
                         self.clock[processo] = max(self.clock[processo], m[processo])
-                    self.clock[id_receiver] += 1
+                    self.clock[id_sender] += 1
 
                     # Processa a mensagem
                     print("Message from Process {} to Process {} delayed".format(id_sender, id_receiver))
-                    print(f"[RECEIVE] Time: {receive_time:.2f} - Process {self.id} processed delayed message: {message} from Process {id_sender}\n")
-                    print(f"[UPDATE] Time: {receive_time:.2f} - Updated vector clock of Process {self.id} after processing delayed message: {self.clock}\n")
+                    print(f"[RECEIVE] Process {self.id} processed delayed message: {message} from Process {id_sender}")
+                    print(f"[UPDATE] Updated vector clock of Process {self.id} after processing delayed message: {self.clock}")
                     self.message_queue.remove(packed_message)
 
 
@@ -144,12 +145,12 @@ class Process:
         if self.check_delay_conditions(packed_message):
             for processo in range(len(self.clock)):
                 self.clock[processo] = max(self.clock[processo], message[processo])
-            self.clock[id_receiver] += 1
-            print(f"[RECEIVE] Time: {receive_time:.2f} - Process {self.id} received message: {message} from Process {id_sender}\n")
-            print(f"[UPDATE] Time: {receive_time:.2f} - Updated vector clock of Process {self.id}: {self.clock}\n")
+            self.clock[id_sender] += 1
+            print(f"[RECEIVE] Process {self.id} received message: {message} from Process {id_sender}")
+            print(f"[UPDATE] Updated vector clock of Process {self.id}: {self.clock}")
         else:
             self.message_queue.append(packed_message)
-        
+       
         self.check_and_process_delayed_messages()
 
 
