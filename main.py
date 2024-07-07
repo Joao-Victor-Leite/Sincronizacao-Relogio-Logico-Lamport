@@ -1,6 +1,5 @@
 from mpi4py import MPI
 import numpy as np
-import time
 
 """ 
 Autor: João Victor Leite da Silva Almeida
@@ -16,198 +15,80 @@ Como executar:
         mpirun --oversubscribe -np 4 python main.py
 """
 
-class Process:
-    def __init__(self, id, num_processes):
-        self.id = id                                    #O identificador único do processo.
-        self.clock = np.zeros(num_processes, dtype=int) #O vetor de relógio lógico do processo.
-        self.num_processes = num_processes              #O número total de processos no sistema.
-        self.message_queue = []                         #A fila de mensagens recebidas pelo processo.
-        self.processes = {}                             #Um dicionário que mapeia os identificadores dos processos aos seus respectivos objetos.
-    
-    def send_singlecast_message(self, id_sender, id_receiver, message, send_time, delay):
-            """
-            Envia uma mensagem unicast de um processo remetente para um processo destinatário.
-
-            Parâmetros:
-            - id_sender (int): ID do processo remetente.
-            - id_receiver (int): ID do processo destinatário.
-            - message (list): Lista contendo a mensagem a ser enviada.
-            - send_time (float): Tempo de envio da mensagem.
-            - delay (float): Tempo de atraso para simular o atraso na entrega da mensagem.
-
-            Retorna:
-            Nenhum retorno.
-            """
-            receive_time = send_time + delay
-            packed_message = (id_sender, id_receiver, message.copy(), send_time, receive_time)
-            print(f"[SEND] Process {id_sender} sending message to Process {id_receiver} with delay {delay}s. Message: {message}")
-
-            receiver = self.find_process(id_receiver)
-            if receiver:
-                time.sleep(delay)
-                receiver.receive_message(packed_message)
-
-
-    def find_process(self, id_receiver):
-        """
-        Retorna o processo correspondente ao ID do receptor.
-
-        Parâmetros:
-        - id_receiver (int): O ID do receptor.
-
-        Retorna:
-        - O processo correspondente ao ID do receptor, ou None se não for encontrado.
-        """
-        return self.processes.get(id_receiver, None)
-    
-    def check_delay_conditions(self, packed_message):
-        """
-        Verifica as condições de atraso de uma mensagem recebida.
-
-        Parâmetros:
-        - packed_message: uma tupla contendo as informações da mensagem recebida, na seguinte ordem:
-            - id_sender: o identificador do processo que enviou a mensagem
-            - id_receiver: o identificador do processo que recebeu a mensagem
-            - message: a mensagem em si
-            - send_time: o tempo de envio da mensagem
-            - receive_time: o tempo de recebimento da mensagem
-
-        Retorna:
-        - True se as condições de atraso forem satisfeitas
-        - False caso contrário
-        """
-        id_sender, id_receiver, message, send_time, receive_time = packed_message
-        m = message
-
-        # Condição 1: m[i] = VCj[i] + 1
-        condition_1 = m[id_sender] == self.clock[id_sender] + 1
-
-        # Condição 2: m[k] <= VCj[k], para todo k diferente de i
-        condition_2 = all(m[k] <= self.clock[k] for k in range(self.num_processes) if k != id_sender)
-
-        if not condition_1 or not condition_2:
-            print(f"[DELAY] Message from Process {id_sender} to Process {id_receiver} delayed")
-            self.message_queue.append(packed_message)
-            return False
-        
-        return True
-    
-    def check_and_process_delayed_messages(self):
-            """
-            Verifica e processa as mensagens atrasadas na fila de mensagens.
-
-            Itera sobre cada mensagem na fila de mensagens e verifica se as condições de atraso são atendidas.
-            Se as condições forem atendidas, atualiza o vetor de causalidade do receptor, processa a mensagem
-            e remove a mensagem da fila.
-
-            Args:
-                self (objeto): A instância da classe.
-
-            Returns:
-                None
-            """
-            for packed_message in list(self.message_queue):
-                id_sender, id_receiver, message, send_time, receive_time = packed_message
-                m = message
-                
-                if self.check_delay_conditions(packed_message):
-                     # Atualiza o vetor de causalidade do receptor
-                    for processo in range(self.num_processes):
-                        self.clock[processo] = max(self.clock[processo], m[processo])
-                    self.clock[id_sender] += 1
-
-                    # Processa a mensagem
-                    print("Message from Process {} to Process {} delayed".format(id_sender, id_receiver))
-                    print(f"[RECEIVE] Process {self.id} processed delayed message: {message} from Process {id_sender}")
-                    print(f"[UPDATE] Updated vector clock of Process {self.id} after processing delayed message: {self.clock}")
-                    self.message_queue.remove(packed_message)
-
-
-    def receive_message(self, packed_message):
-        """
-        Recebe uma mensagem e atualiza o relógio vetorial do processo.
-
-        Parâmetros:
-        packed_message (tuple): Uma tupla contendo as informações da mensagem recebida.
-            A tupla deve conter os seguintes elementos:
-                - id_sender (int): O ID do processo que enviou a mensagem.
-                - id_receiver (int): O ID do processo que recebeu a mensagem.
-                - message (list): Uma lista contendo os valores do relógio vetorial da mensagem.
-                - send_time (float): O tempo de envio da mensagem.
-                - receive_time (float): O tempo de recebimento da mensagem.
-
-        Retorna:
-        None
-
-        """
-        id_sender, id_receiver, message, send_time, receive_time = packed_message
-
-        if self.check_delay_conditions(packed_message):
-            for processo in range(len(self.clock)):
-                self.clock[processo] = max(self.clock[processo], message[processo])
-            self.clock[id_sender] += 1
-            print(f"[RECEIVE] Process {self.id} received message: {message} from Process {id_sender}")
-            print(f"[UPDATE] Updated vector clock of Process {self.id}: {self.clock}")
-        else:
-            self.message_queue.append(packed_message)
-       
-        self.check_and_process_delayed_messages()
-
-
-# Inicialização do MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-num_processes = size
-processes = {i: Process(i, num_processes) for i in range(num_processes)}
-
-# Adicionar a lista de processos à classe Process
-for process in processes.values():
-    process.processes = processes
-
-if __name__ == '__main__':
+# Verificar se o número de processos é 4
+if size != 4:
     if rank == 0:
-        time.sleep(1)  # Espera um pouco antes de enviar para garantir que todos os processos estejam prontos
-        processes[0].clock[0] += 1
-        message = processes[0].clock.copy()
-        processes[0].send_singlecast_message(0, 1, message, time.time(), 2)
-        processes[0].send_singlecast_message(0, 2, message, time.time(), 3)
-        processes[0].send_singlecast_message(0, 3, message, time.time(), 4)
-    elif rank == 1:
-        time.sleep(3)
-        processes[1].clock[1] += 1
-        message = processes[1].clock.copy()
-        processes[1].send_singlecast_message(1, 0, message, time.time(), 1)
-        processes[1].send_singlecast_message(1, 2, message, time.time(), 2)
-        processes[1].send_singlecast_message(1, 3, message, time.time(), 3)
-    elif rank == 2:
-        time.sleep(5)
-        processes[2].clock[2] += 1
-        message = processes[2].clock.copy()
-        processes[2].send_singlecast_message(2, 0, message, time.time(), 2)
-        processes[2].send_singlecast_message(2, 1, message, time.time(), 3)
-        processes[2].send_singlecast_message(2, 3, message, time.time(), 4)
-    elif rank == 3:
-        time.sleep(7)
-        processes[3].clock[3] += 1
-        message = processes[3].clock.copy()
-        processes[3].send_singlecast_message(3, 0, message, time.time(), 1)
-        processes[3].send_singlecast_message(3, 1, message, time.time(), 2)
-        processes[3].send_singlecast_message(3, 2, message, time.time(), 3)
-
-    comm.Barrier()
-
-    # Coletar os vetores finais de todos os processos no processo 0
-    final_clocks = comm.gather(processes[rank].clock, root=0)
-
-    # Imprimir o vetor de causalidade final de cada processo no processo 0
-    if rank == 0:
-        print("[FINAL] Vetores de causalidade finais de todos os processos:")
-        for i, clock in enumerate(final_clocks):
-            print(f"Processo {i}: {clock}")
-
-    comm.Barrier()
-
-    # Finalização do MPI
+        print("Este programa requer exatamente 4 processos.")
     MPI.Finalize()
+    exit()
+
+# Inicializar os vetores de relógios lógicos
+vector_clock = np.zeros(size, dtype=int)
+
+def multicast(msg, sender_rank, vc):
+    """
+    Envia uma mensagem multicast para todos os processos, exceto o remetente.
+
+    Args:
+        msg (object): A mensagem a ser enviada.
+        sender_rank (int): O índice do processo remetente.
+        vc (list): O vetor de relógio vetorial atualizado.
+
+    Returns:
+        None
+    """
+    for i in range(size):
+        if i != sender_rank:
+            comm.send((msg, vc), dest=i, tag=sender_rank)
+
+def receive_message():
+    """
+    Função responsável por receber uma mensagem de outros processos e verificar se as condições de recebimento são atendidas.
+
+    Returns:
+        msg (objeto): A mensagem recebida.
+        sender_rank (int): O rank do processo remetente.
+        success (bool): Indica se as condições de recebimento foram atendidas.
+    """
+    status = MPI.Status()
+    msg, sender_vc = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
+    sender_rank = status.Get_source()
+    
+    # Condições de recebimento
+    # Condição 1: m[i] = VCj[i] + 1
+    condition1 = sender_vc[sender_rank] == vector_clock[sender_rank] + 1
+    # Condição 2: m[k] <= VCj[k], para todo k diferente de i
+    condition2 = all(sender_vc[k] <= vector_clock[k] for k in range(size) if k != sender_rank)
+    
+    if condition1 and condition2:
+        vector_clock[sender_rank] += 1
+        return msg, sender_rank, True
+    else:
+        return msg, sender_rank, False
+
+# Cada processo envia uma mensagem para todos os outros processos
+print(f"[SEND]      Processo {rank} enviando mensagem...")
+vector_clock[rank] += 1
+multicast(f"Mensagem de P{rank}", rank, vector_clock.copy())
+print(f"[UPDATE 1]  Processo {rank} vetor atualizado: {vector_clock}")
+
+# Cada processo recebe mensagens de todos os outros processos
+received_messages = 0
+while received_messages < size - 1:
+    msg, sender_rank, received = receive_message()
+    if received:
+        print(f"[RECEIVE]   Processo {rank} recebeu '{msg}' de P{sender_rank}")
+        print(f"[UPDATE 2]  Processo {rank} vetor atualizado: {vector_clock}")
+        received_messages += 1
+    else:
+        print(f"[DELAY]     Processo {rank} não recebeu '{msg}' de P{sender_rank}")
+
+
+# Sincronizar todos os processos antes de mostrar o vetor final
+comm.Barrier()
+
+print(f"[FINAL]     Processo {rank} vetor final: {vector_clock}")
