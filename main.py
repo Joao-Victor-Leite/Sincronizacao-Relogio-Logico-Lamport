@@ -8,7 +8,7 @@ Disciplina: Sistemas Distribuidos
 Descricao: Implementacao do algoritmo de vetores de causalidade de Lamport
 
 Como executar:
-    - Para baicar as bibliotecas necessarioas:
+    - Para baixar as bibliotecas necessarias:
         pip install -r./requirements.txt
     
     - Para executar o programa:
