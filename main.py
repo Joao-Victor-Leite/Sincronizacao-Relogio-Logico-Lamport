@@ -202,9 +202,9 @@ if __name__ == '__main__':
 
     # Imprimir o vetor de causalidade final de cada processo no processo 0
     if rank == 0:
-        print("\n[FINAL] Vetores de causalidade finais de todos os processos:")
+        print("[FINAL] Vetores de causalidade finais de todos os processos:")
         for i, clock in enumerate(final_clocks):
-            print(f"Process {i} final vector clock: {clock}")
+            print(f"Processo {i}: {clock}")
 
     comm.Barrier()
 
