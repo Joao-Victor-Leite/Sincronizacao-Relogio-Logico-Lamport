@@ -43,7 +43,7 @@ def multicast(msg, sender_rank, vc):
     """
     for i in range(size):
         if i != sender_rank:
-            comm.send((msg, vc), dest=i, tag=sender_rank)
+            comm.send((msg, vc), dest=i, tag=sender_rank)   #envia a mensagem e o vetor de relogio vetorial para o processo i
 
 def receive_message():
     """
@@ -54,11 +54,12 @@ def receive_message():
         sender_rank (int): O rank do processo remetente.
         success (bool): Indica se as condições de recebimento foram atendidas.
     """
-    status = MPI.Status()
-    msg, sender_vc = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
-    sender_rank = status.Get_source()
+    status = MPI.Status()                                                               #objeto Status para receber informações sobre a mensagem
+    msg, sender_vc = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)   #recebe a mensagem e o vetor de relogio vetorial do remetente
+    sender_rank = status.Get_source()                                                   #obtem o rank do processo remetente
     
     # Condições de recebimento
+    
     # Condição 1: m[i] = VCj[i] + 1
     condition1 = sender_vc[sender_rank] == vector_clock[sender_rank] + 1
     # Condição 2: m[k] <= VCj[k], para todo k diferente de i
@@ -77,6 +78,10 @@ multicast(f"Mensagem de P{rank}", rank, vector_clock.copy())
 print(f"[UPDATE 1]  Processo {rank} vetor atualizado: {vector_clock}")
 
 # Cada processo recebe mensagens de todos os outros processos
+""" Cada processo tenta receber mensagens de todos os outros 
+processos. Se as condições para o recebimento forem satisfeitas, 
+o vetor de relógio lógico do processo receptor é atualizado e a 
+mensagem é contabilizada.  """
 received_messages = 0
 while received_messages < size - 1:
     msg, sender_rank, received = receive_message()
